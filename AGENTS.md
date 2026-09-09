@@ -62,3 +62,11 @@ docs/             → Setup guides (VPS, GHCR, HTTPS, Dockerfile examples)
 - **Add database**: Add service to docker-compose.yml, add DB env vars to .env.example
 - **Switch to Python/Go/Rust/Java**: Copy Dockerfile from docs/DOCKERFILE_EXAMPLES.md, replace app/
 - **Add HTTPS**: Follow docs/HTTPS_SETUP.md (Caddy reverse proxy)
+
+## Fleet CI policy
+
+Common runtime, audit, license, secret-scan and CodeQL policy lives in
+[starter-series/.github](https://github.com/starter-series/.github).
+Keep deliverable checks in `.github/actions/validate/action.yml`.
+Weekly health and failures are aggregated in the central Fleet maintenance workflow;
+this repository retains a manual maintenance runner without issue automation.

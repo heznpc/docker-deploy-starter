@@ -6,7 +6,10 @@
 # refreshes this on a schedule. Node 20 reached EOL on 2026-04-30, so
 # this targets Node 22 (active LTS through 2027-04).
 
-FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
+
+# The base image bundles vulnerable node-tar; retain npm with a patched toolchain.
+RUN npm install --global npm@11.19.1 --ignore-scripts && npm cache clean --force
 
 WORKDIR /app
 COPY --chown=node:node app/ .
