@@ -8,6 +8,9 @@
 
 FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f
 
+# The base image bundles vulnerable node-tar; retain npm with a patched toolchain.
+RUN npm install --global npm@11.19.1 --ignore-scripts && npm cache clean --force
+
 WORKDIR /app
 COPY --chown=node:node app/ .
 
