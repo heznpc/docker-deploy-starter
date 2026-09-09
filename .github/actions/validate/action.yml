@@ -1,0 +1,36 @@
+name: Validate docker-deploy-starter
+description: Deliverable-specific checks; runtime and security policy live in starter-series/.github.
+runs:
+  using: composite
+  steps:
+  - name: Lint Dockerfile
+    uses: starter-series/.github/.github/actions/docker-lint@main
+  - name: Validate docker-compose
+    run: |
+      cp .env.example .env
+      docker compose config --quiet
+      rm .env
+    shell: bash
+  - name: Build Docker image
+    run: docker build -t docker-deploy-starter:test .
+    shell: bash
+  - name: Scan image for vulnerabilities
+    uses: starter-series/.github/.github/actions/image-security@main
+    with:
+      image: docker-deploy-starter:test
+  - name: Check image size
+    run: |
+      SIZE=$(docker image inspect docker-deploy-starter:test --format='{{.Size}}')
+      SIZE_MB=$((SIZE / 1024 / 1024))
+      echo "Image size: ${SIZE_MB} MB"
+      if [ "$SIZE_MB" -gt 500 ]; then
+        echo "::error::Docker image exceeds 500 MB (${SIZE_MB} MB) — consider multi-stage build"
+        exit 1
+      fi
+    shell: bash
+  - name: Run rollback integration test
+    run: bash tests/rollback-integration.sh
+    shell: bash
+  - name: Run JS tests
+    run: npm test
+    shell: bash

@@ -1,105 +1,24 @@
 name: CI
-
-on:
+'on':
   push:
-    branches: [main]
+    branches:
+    - main
   pull_request:
-    branches: [main]
-  workflow_call:
-
+    branches:
+    - main
+  workflow_call: {}
+  workflow_dispatch: {}
 permissions:
   contents: read
-
 jobs:
+  checks:
+    uses: starter-series/.github/.github/workflows/reusable-container-ci.yml@main
   ci:
+    if: ${{ always() }}
+    needs:
+    - checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Scan for secrets
-        env:
-          # Bump together; checksum from
-          # https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_checksums.txt
-          GITLEAKS_VERSION: 8.30.1
-          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
-        run: |
-          set -euo pipefail
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o /tmp/gitleaks.tgz
-          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
-          tar xz -C /tmp -f /tmp/gitleaks.tgz
-          /tmp/gitleaks detect --source . --verbose --redact
-
-      - name: Check for large files
-        run: |
-          LARGE=$(find . -not -path './.git/*' -type f -size +5M)
-          if [ -n "$LARGE" ]; then
-            echo "::error::Large files detected (>5 MB):"
-            echo "$LARGE"
-            exit 1
-          fi
-
-      - name: Lint Dockerfile
-        uses: hadolint/hadolint-action@v3.3.0
-        with:
-          dockerfile: Dockerfile
-
-      - name: Validate docker-compose
-        run: |
-          cp .env.example .env
-          docker compose config --quiet
-          rm .env
-
-      - name: Build Docker image
-        run: docker build -t docker-deploy-starter:test .
-
-      - name: Scan image for vulnerabilities
-        # Pinned by SHA — trivy-action suffered tag hijacks in 2025-08 and 2026-03.
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: docker-deploy-starter:test
-          exit-code: '1'
-          # Gate on CRITICAL only. HIGH would also fail on base-image CVEs the
-          # template cannot fix (e.g. a ReDoS in the node image's bundled npm),
-          # turning CI red on every node release; CodeQL + Dependabot carry the
-          # day-to-day signal. ignore-unfixed drops CVEs with no upstream patch.
-          severity: CRITICAL
-          ignore-unfixed: true
-
-      - name: Check image size
-        run: |
-          SIZE=$(docker image inspect docker-deploy-starter:test --format='{{.Size}}')
-          SIZE_MB=$((SIZE / 1024 / 1024))
-          echo "Image size: ${SIZE_MB} MB"
-          if [ "$SIZE_MB" -gt 500 ]; then
-            echo "::error::Docker image exceeds 500 MB (${SIZE_MB} MB) — consider multi-stage build"
-            exit 1
-          fi
-
-  rollback-integration-test:
-    # Regression test for scripts/deploy-with-rollback.sh. Exercises the
-    # same script the CD workflow calls over SSH, but with local images
-    # and local docker compose so no secrets/registry are required.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Run rollback integration test
-        run: bash tests/rollback-integration.sh
-
-  node-tests:
-    # Behavioral unit/integration tests for the template's own scripts and
-    # example app: scripts/bump-version.js validation + app/server.js
-    # /health and 404 behavior. Runs the real code via node:test.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-
-      - name: Run JS tests
-        run: npm test
+    - uses: starter-series/.github/.github/actions/require-checks@main
+      with:
+        results: ${{ toJSON(needs) }}
